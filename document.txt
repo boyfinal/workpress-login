@@ -1,0 +1,20 @@
+# User form login
+do_shortcode('[farost_form_login]');
+The attributes used in the shortcode:
+	wrap_id: ID name wraper
+	wrap_class: Class name wraper
+
+# User form register
+do_shortcode('[farost_form_register]');
+The attributes used in the shortcode:
+	wrap_id: ID name wraper
+	wrap_class: Class name wraper
+
+# User login to social
+do_shortcode('[farost_login_social]');
+The attributes used in the shortcode:
+	wrap_id: ID name wraper
+	wrap_class: Class name wraper
+	facebook_on: Display login facebook
+	google_on: Display login google
+	twitter_on: Display login twitter
