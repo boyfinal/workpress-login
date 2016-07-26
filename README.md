@@ -1,2 +1,2 @@
 # login
-This is plugin login wordpress ajax
+This is wordpress plugin Login with Ajax + Social Connect
