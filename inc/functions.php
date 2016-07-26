@@ -1,5 +1,12 @@
 <?php
 
+if (!function_exists('farost_login_get_url')) {
+    function farost_login_get_url( $path = '' )
+    {
+        return plugins_url( ltrim( $path, '/' ), dirname(__FILE__) );
+    }
+}
+
 if (!function_exists('farost_login_option')) {
     function farost_login_option($key = '', $default = '')
     {
@@ -17,6 +24,7 @@ if (!function_exists('farost_login_option')) {
         }
     }
 }
+
 if (!function_exists('farost_button_login_facebook'))
 {
     function farost_button_login_facebook($show = 'yes')
@@ -86,6 +94,7 @@ if (!function_exists('farost_button_login_facebook'))
         <?php
     }
 }
+
 if (!function_exists('farost_button_login_google'))
 {
     function farost_button_login_google($show = 'yes')
@@ -156,6 +165,7 @@ if (!function_exists('farost_button_login_google'))
         <?php
     }
 }
+
 if (!function_exists('farost_button_login_twitter'))
 {
     function farost_button_login_twitter($show = 'yes')
@@ -173,38 +183,40 @@ if (!function_exists('farost_button_login_twitter'))
     }
 }
 
-// Apply filter
-add_filter( 'get_avatar' , 'farost_custom_avatar' , 1 , 5 );
+if(!function_exists('farost_custom_avatar')){
+    // Apply filter
+    add_filter( 'get_avatar' , 'farost_custom_avatar' , 1 , 5 );
 
-function farost_custom_avatar( $avatar, $id_or_email, $size, $default, $alt ) {
-    $user = false;
+    function farost_custom_avatar( $avatar, $id_or_email, $size, $default, $alt ) {
+        $user = false;
 
-    if ( is_numeric( $id_or_email ) ) {
+        if ( is_numeric( $id_or_email ) ) {
 
-        $id = (int) $id_or_email;
-        $user = get_user_by( 'id' , $id );
-
-    } elseif ( is_object( $id_or_email ) ) {
-
-        if ( ! empty( $id_or_email->user_id ) ) {
-            $id = (int) $id_or_email->user_id;
+            $id = (int) $id_or_email;
             $user = get_user_by( 'id' , $id );
+
+        } elseif ( is_object( $id_or_email ) ) {
+
+            if ( ! empty( $id_or_email->user_id ) ) {
+                $id = (int) $id_or_email->user_id;
+                $user = get_user_by( 'id' , $id );
+            }
+
+        } else {
+            $user = get_user_by( 'email', $id_or_email );   
         }
 
-    } else {
-        $user = get_user_by( 'email', $id_or_email );   
+        if($user && is_object( $user )){
+            $avatar_size = 'farost_user_large_avatar';
+            if(get_user_meta($user->ID, $avatar_size, true) == ''){
+                $avatar_size = 'farost_user_avatar';
+            }
+
+            if ( ($avatar = get_user_meta($user->ID, $avatar_size, true)) !== false && strlen(trim($avatar)) > 0) {
+                    $avatar = "<img alt='{$alt}' src='{$avatar}' class='avatar avatar-{$size} photo' height='{$size}' width='{$size}' />";
+
+            }
+        }
+        return $avatar;
     }
-
-    if($user && is_object( $user )){
-        $avatar_size = 'farost_user_large_avatar';
-        if(get_user_meta($user->ID, $avatar_size, true) == ''){
-            $avatar_size = 'farost_user_avatar';
-        }
-
-        if ( ($avatar = get_user_meta($user->ID, $avatar_size, true)) !== false && strlen(trim($avatar)) > 0) {
-                $avatar = "<img alt='{$alt}' src='{$avatar}' class='avatar avatar-{$size} photo' height='{$size}' width='{$size}' />";
-
-        }
-    }
-    return $avatar;
 }

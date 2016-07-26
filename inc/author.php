@@ -21,12 +21,14 @@ class Farost_Plugin_Author
     function __construct()
     {
         add_action('init', array( $this, 'enqueue'));
+
         if (farost_login_option('display') == 1) {
             $providers = farost_login_option('providers');
             if (!empty($providers) && in_array('twitter',$providers)) {
                 add_action('init', array( $this, 'twitter'));
             }
         }
+
         add_action('wp_ajax_nopriv_farost_ajax_login', array($this, 'process'));
         add_action('wp_ajax_farost_ajax_login', array($this, 'process'));
     }
@@ -34,7 +36,7 @@ class Farost_Plugin_Author
     public function enqueue()
     {
         global $wp_query;
-        wp_register_script('js-ajax-login', farost_get_url('js/login.js'), array('jquery'), '1.0.0');
+        wp_register_script('js-ajax-login', farost_login_get_url('assets/js/login.js'), array('jquery'), '1.0.0');
         wp_enqueue_script('js-ajax-login');
         wp_localize_script('js-ajax-login', 'farost_plugin_js_login', array('ajaxurl' => admin_url('admin-ajax.php'), 'action' => 'farost_ajax_login'));
     }
@@ -45,11 +47,12 @@ class Farost_Plugin_Author
         $process    = esc_attr($_REQUEST['process']);
         $result     = array();
         $userdata   = array();
+
         if ( $process == 'login' ) {
 
             $userdata = array();
-            $userdata['user_login']     = stripslashes(trim($_REQUEST['username']));
-            $userdata['user_password']  = stripslashes(trim($_REQUEST['password']));
+            $userdata['user_login']     = $wpdb->_escape($_REQUEST['username']);
+            $userdata['user_password']  = $wpdb->_escape($_REQUEST['password']);
             $userdata['remember']       = isset($_REQUEST['rememberme']) ? $wpdb->_escape($_REQUEST['rememberme']) : '';
 
             if ( empty($userdata['user_login']) ) {
@@ -76,6 +79,7 @@ class Farost_Plugin_Author
             if ( empty($userdata['user_login']) ) {
                 $result['error'] = 2;
                 $result['fields']['username'] = __('This is a required field.','farost_login');
+
             }elseif ( username_exists($userdata['user_login']) ) {
                 $result['error'] = 2;
                 $result['fields']['username'] = __('The username address is exist.','farost_login');
@@ -84,9 +88,11 @@ class Farost_Plugin_Author
             if ( empty($userdata['user_email']) ) {
                 $result['error'] = 2;
                 $result['fields']['email'] = __('This is a required field.','farost_login');
+
             }elseif( !filter_var($userdata['user_email'], FILTER_VALIDATE_EMAIL) ){
                 $result['error'] = 2;
                 $result['fields']['email'] = __('The email address isn’t correct.','farost_login');
+
             }elseif( email_exists($userdata['user_email']) ) {
                 $result['error'] = 2;
                 $result['fields']['email'] = __('The email address is exist.','farost_login');
@@ -98,7 +104,6 @@ class Farost_Plugin_Author
             }
 
             if ( empty($result['error']) ) {
-
                 $result = $this->register($userdata);
 
                 if ( $result['error'] == 0 ) {
@@ -152,8 +157,10 @@ class Farost_Plugin_Author
         if ( ! is_wp_error( $user ) ) {
             $result['error']  = 0;
             $result['message'] = __( 'Successfully!', 'farost_login' );
+
         } else {
             $result['error'] = 1;
+
             if ( $user->errors ) {
                 foreach ( $user->errors as $error ) {
                     $result['message'] = $error[0];
@@ -175,8 +182,10 @@ class Farost_Plugin_Author
         if ( !is_wp_error($user) ) {
             $result['error']  = 0;
             $result['message'] = __( 'Successfully!', 'farost_login' );
+
         } else {
             $result['error'] = 1;
+
             if ( $user->errors ) {
                 foreach ( $user->errors as $error ) {
                     $result['message'] = $error[0];
@@ -193,31 +202,38 @@ class Farost_Plugin_Author
     {
         $twitter_key    = farost_login_option('twitter_key');
         $twitter_secret = farost_login_option('twitter_secret');
+
         if ( empty($twitter_key) || empty($twitter_secret) ) {
             return;
         }
+
         if ( isset($_GET['farost-twitter-login']) && $_GET['farost-twitter-login'] == 1 ) {
             $url_redirect = str_replace('farost-twitter-login=1&','',$_SERVER['REQUEST_URI']);
             $url_redirect = str_replace('farost-twitter-login=1','',$_SERVER['REQUEST_URI']);
             $url_redirect = home_url() . rtrim($url_redirect,'?');
+
             if (!isset($_SESSION['url_redirect']) || !$_SESSION['url_redirect']) {
                 $_SESSION['url_redirect'] = $url_redirect;
             }
+
             $config = array(
                 'api_key' => $twitter_key,
                 'api_secret' => $twitter_secret,
                 'author_callback' => trailingslashit( home_url() ) . '?farost-twitter-login=1',
             );
-            include_once(trailingslashit(FAROST_CORE_DIR) . 'libary/twitteroauth.php');
+
+            include_once(trailingslashit(FAROST_LOGIN_DIR) . 'libary/twitteroauth.php');
 
             if(isset($_REQUEST['oauth_token']) && $_SESSION['token'] !== $_REQUEST['oauth_token']) {
                 session_destroy();
                 wp_redirect( $_SESSION['url_redirect'] );
                 exit;
+
             }elseif(isset($_REQUEST['oauth_token']) && $_SESSION['token'] == $_REQUEST['oauth_token']) {
                 //Successful response returns oauth_token, oauth_token_secret, user_id, and screen_name
                 $connection = new TwitterOAuth($config['api_key'], $config['api_secret'], $_SESSION['token'] , $_SESSION['token_secret']);
                 $access_token = $connection->getAccessToken($_REQUEST['oauth_verifier']);
+
                 if($connection->http_code == '200')
                 {
                     //Redirect user to twitter
@@ -228,12 +244,14 @@ class Farost_Plugin_Author
                     $user_info = $connection->get('account/verify_credentials');
                     $_SESSION['user'] = $user_info;
                     $this->social($user_info,'twitter');
+
                     //Unset no longer needed request tokens
                     unset($_SESSION['token']);
                     unset($_SESSION['token_secret']);
                     wp_redirect( $_SESSION['url_redirect'] );
                     $_SESSION['url_redirect']='';
                     exit;
+
                 }else{
                     die("error, try again later!");
                 }
@@ -267,24 +285,31 @@ class Farost_Plugin_Author
         if (empty($userdata) && empty($provider)) {
             $result['error'] = 1;
             $result['message'] = __( 'Error occurred', 'farost_login' );
-        } 
+        }
+
         $userdata = $this->custom_socail_profile_data($userdata,$provider);
+
         if ( $user_id = email_exists($userdata['email']) ) {
             $this->social_login_user($user_id);
             $result['error']  = 0;
             $result['message'] = __( 'Successfully!', 'farost_login' );
+
         }else{
             $users = get_users('meta_key=farost_user_social_id&meta_value='.$userdata['id']);
+
             if ( count($users) > 0 ) {
                 $this->social_login_user($users[0]->ID);
                 $result['error']  = 0;
                 $result['message'] = __( 'Successfully!', 'farost_login' );
+
             }else{
                 $user_id = $this->social_create_user($userdata);
+
                 if ($user_id) {
                     $this->social_login_user($user_id);
                     $result['error']  = 0;
                     $result['message'] = __( 'Successfully!', 'farost_login' );
+
                 }else{
                     $result['error']  = 1;
                     $result['message'] = __( 'Error occurred', 'farost_login' );
@@ -297,11 +322,13 @@ class Farost_Plugin_Author
     private function custom_socail_profile_data($profile_data, $provider)
     {
         $temp = array();
+
         if ($provider == 'facebook') {
             $temp = $profile_data;
             $temp['email'] = isset($profile_data['id']) ? $profile_data['id'].'@'.$provider.'.com' : '';
             $temp['avatar'] = "//graph.facebook.com/" . $profile_data['id'] . "/picture?type=square";
             $temp['large_avatar'] = "//graph.facebook.com/" . $profile_data['id'] . "/picture?type=large";
+
         } elseif ($provider == 'google') {
             $temp['id'] = isset($profile_data['id']) ? $profile_data['id'] : '';
             $temp['email'] = isset($profile_data['email']) ? $profile_data['email'] : '';
@@ -313,6 +340,7 @@ class Farost_Plugin_Author
             $temp['link'] = '';
             $temp['avatar'] = isset($profile_data['image']) ? $profile_data['image'] : '';
             $temp['large_avatar'] = $temp['avatar'] != '' ? ($temp['avatar'] . '?sz=50') : '';
+
         } elseif ($provider == 'twitter') {
             $temp['id'] = isset($profile_data->id) ? $profile_data->id : '';
             $temp['email'] = isset($profile_data->id) ? $profile_data->id.'@'.$provider.'.com' : '';
@@ -324,9 +352,11 @@ class Farost_Plugin_Author
             $temp['link'] = $temp['username'] != '' ? 'https://twitter.com/'.$temp['username'] : '';
             $temp['avatar'] = isset($profile_data->profile_image_url) ? $profile_data->profile_image_url : '';
             $temp['large_avatar'] = $temp['avatar'] != '' ? str_replace('_normal', '', $temp['avatar']) : '';
+
         }else{
             return $temp;
         }
+
         $temp['avatar'] = str_replace( array('http://','https://'), '//', $temp['avatar'] );
         $temp['large_avatar'] = str_replace( array('http://','https://'), '//', $temp['large_avatar'] );
         $temp['name']       = sanitize_user($temp['name'], true);
@@ -334,6 +364,7 @@ class Farost_Plugin_Author
         $temp['first_name'] = ucfirst(sanitize_user($temp['first_name'], true));
         $temp['last_name']  = ucfirst(sanitize_user($temp['last_name'], true));
         $temp['provider']   = $provider;
+
         return $temp;
     }
 
@@ -342,38 +373,47 @@ class Farost_Plugin_Author
         $username   = "";
         $firstname  = "";
         $lastname   = "";
+
         if(!empty($profile_data['username'])){
             $username = $profile_data['username'];
         }
+
         if( !empty($profile_data['first_name']) && !empty($profile_data['last_name']) ){
             $username = !$username ? $profile_data['first_name'] . ' ' . $profile_data['last_name'] : $username;
             $firstname  = $profile_data['first_name'];
             $lastname   = $profile_data['last_name'];
+
         }elseif( !empty($profile_data['name']) ){
             $username   = !$username ? $profile_data['name'] : $username;
             $nameParts  = explode(' ', $profile_data['name']);
+
             if(count($nameParts) > 1){
                 $firstname  = $nameParts[0];
                 $lastname   = $nameParts[1];
+
             }else{
                 $firstname = $profile_data['name'];
             }
         }elseif(!empty($profile_data['username'])){
             $firstname = $profile_data['username'];
+
         }elseif(isset($profile_data['email']) && $profile_data['email'] != ''){
             $user_name = explode('@', $profile_data['email']);
             $username = !$username ? $user_name[0] : $username;
             $firstname = str_replace("_", " ", $user_name[0]);
+
         }else{
             $username = !$username ? $profile_data['id'] : $username;
             $firstname = $profile_data['id'];
         }
+
         return array($username,$firstname,$lastname);
     }
 
     private function social_login_user( $userId )
     {
         $user = get_user_by('id', $userId);
+
         if($user){
             wp_set_current_user($userId, $user->user_login);
             wp_set_auth_cookie($userId);
@@ -388,12 +428,13 @@ class Farost_Plugin_Author
         $username   = $ufl[0];
         $firstname  = $ufl[1];
         $lastname   = $ufl[2];
+
         // make username unique
         $nameexists = true;
         $index = 1;
         $username = str_replace(' ', '-', $username);
-
         $user_name = $username;
+
         while($nameexists == true){
             if(username_exists($user_name) != 0){
                 $index++;
@@ -402,6 +443,7 @@ class Farost_Plugin_Author
                 $nameexists = false;
             }
         }
+
         $username = strtolower($user_name);
         $password = wp_generate_password();
         $userdata = array(
@@ -417,22 +459,29 @@ class Farost_Plugin_Author
             'user_url' => isset($profile_data['link']) && $profile_data['link'] != '' ? $profile_data['link'] : '',
             'role' => get_option('default_role')
         );
+
         $userId = wp_insert_user($userdata);
+
         if(!is_wp_error($userId)){
             if(isset($profile_data['id']) && $profile_data['id'] != ''){
                 update_user_meta($userId, 'farost_user_social_id', $profile_data['id']);
             }
+
             if(isset($profile_data['avatar']) && $profile_data['avatar'] != ''){
                 update_user_meta($userId, 'farost_user_avatar', $profile_data['avatar']);
             }
+
             if(isset($profile_data['large_avatar']) && $profile_data['large_avatar'] != ''){
                 update_user_meta($userId, 'farost_user_large_avatar', $profile_data['large_avatar']);
             }
+
             if(!empty($profile_data['provider'])){
                 update_user_meta($userId, 'farost_login_social', $profile_data['provider']);
             }
+
             return $userId;
         }
+
         return false;
     }
 
@@ -441,11 +490,13 @@ class Farost_Plugin_Author
         if ( is_user_logged_in() ) {
             return;
         }
+
         $defaults = array(
             'wrap_id' => '',
             'wrap_class' => 'farost-form-login',
         );
         $opts = wp_parse_args( $opts, $defaults );
+
         ?>
         <div id="<?php echo $opts['wrap_id']; ?>" class="<?php echo $opts['wrap_class']; ?>">
             <form class="farost-login-form" class="form-horizontal" method="post">
@@ -475,11 +526,13 @@ class Farost_Plugin_Author
         if ( is_user_logged_in() ) {
             return;
         }
+
         $defaults = array(
             'wrap_id' => '',
             'wrap_class' => 'farost-form-register',
         );
         $opts = wp_parse_args( $opts, $defaults );
+
         ?>
         <div id="<?php echo $opts['wrap_id']; ?>" class="<?php echo $opts['wrap_class']; ?>">
             <form class="farost-register-form" method="post">
@@ -499,6 +552,7 @@ class Farost_Plugin_Author
         if ( is_user_logged_in() || farost_login_option('display') != 1) {
             return;
         }
+
         $defaults = array(
             'wrap_id'       => '',
             'wrap_class'    => '',
@@ -515,4 +569,5 @@ class Farost_Plugin_Author
         echo '</div>';
     }
 }
+
 Farost_Plugin_Author::init();
